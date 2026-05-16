@@ -70,7 +70,10 @@ const applyObject = (proc: ObjectValue, args: Value[]): Result<Value> =>{
     const fieldNames = map((v: VarDecl) => v.var, proc.fields);
     const body = renameExps([method.val as CExp]);
     const litArgs = map(valueToLitExp, proc.fieldValues);
-    return evalSequence(substitute(body, fieldNames, litArgs), makeEmptyEnv());
+    return bind(
+        evalSequence(substitute(body, fieldNames, litArgs), makeEmptyEnv()),
+        (methodClosure: Value) => L3applyProcedure(methodClosure, args.slice(1), makeEmptyEnv())
+    );
 }    
 // Applications are computed by substituting computed
 // values into the body of the closure.
