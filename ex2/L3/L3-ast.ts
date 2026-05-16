@@ -260,12 +260,21 @@ export const parseLitExp = (param: Sexp): Result<LitExp> =>
     mapv(parseSExp(param), (sexp: SExpValue) => 
          makeLitExp(sexp));
 
-export const parseClassExp = (params: Sexp[]): Result<ClassExp> =>{
-    params.length != 2 ? makeFailure(`Class expression must be of the form (class (<var>+) (<binding>+)): ${format(params)}`):
-    const fields=first(params);
-    const methods=second(params);
-    
+export const parseClassExp = (fields: Sexp, rest: Sexp[]): Result<ClassExp> => {
+    if (!isNonEmptyList<Sexp>(rest))
+        return makeFailure(`Class expression must be of the form (class (<var>+) (<binding>+)): ${format([fields, ...rest])}`);
+    const methodsSexp = first(rest);
+    return !isArray(fields) || !allT(isString, fields) ? makeFailure(`Invalid fields for ClassExp: ${format(fields)}`) :
+    !isGoodBindings(methodsSexp) ? makeFailure(`Invalid methods for ClassExp: ${format(methodsSexp)}`) :
+    bind(
+        mapv(
+            mapResult(parseL3CExp, map(second, methodsSexp)),
+            (vals: CExp[]) => zipWith(makeBinding, map(b => b[0], methodsSexp), vals)
+        ),
+        (bindings: Binding[]) => makeOk(makeClass(map(makeVarDecl, fields), bindings))
+    );
 }
+
 
 export const isDottedPair = (sexps: Sexp[]): boolean =>
     sexps.length === 3 && 
@@ -317,6 +326,10 @@ const unparseProcExp = (pe: ProcExp): string =>
 const unparseLetExp = (le: LetExp) : string => 
     `(let (${map((b: Binding) => `(${b.var.var} ${unparseL3(b.val)})`, le.bindings).join(" ")}) ${unparseLExps(le.body)})`
 
+const unparseClassExp = (ce: ClassExp): string =>
+    `(class (${map((p: VarDecl) => p.var, ce.fields).join(" ")}) ` +
+    `(${map((b: Binding) => `(${b.var.var} ${unparseL3(b.val)})`, ce.methods).join(" ")}))`;
+    
 export const unparseL3 = (exp: Program | Exp): string =>
     isBoolExp(exp) ? valueToString(exp.val) :
     isNumExp(exp) ? valueToString(exp.val) :
@@ -330,4 +343,4 @@ export const unparseL3 = (exp: Program | Exp): string =>
     isLetExp(exp) ? unparseLetExp(exp) :
     isDefineExp(exp) ? `(define ${exp.var.var} ${unparseL3(exp.val)})` :
     isProgram(exp) ? `(L3 ${unparseLExps(exp.exps)})` :
-    exp;
+    isClassExp(exp) ? unparseClassExp(exp) : exp;

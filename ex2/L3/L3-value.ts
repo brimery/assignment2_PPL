@@ -1,7 +1,7 @@
 // ========================================================
 // Value type definition for L4
 
-import { isPrimOp, CExp, PrimOp, VarDecl } from './L3-ast';
+import { isPrimOp, CExp, PrimOp, VarDecl , Binding} from './L3-ast';
 import { Env, makeEmptyEnv } from './L3-env-env';
 import { append } from 'ramda';
 import { isArray, isNumber, isString } from '../shared/type-predicates';
@@ -42,7 +42,7 @@ export type SymbolSExp = {
     val: string;
 }
 
-export type SExpValue = number | boolean | string | PrimOp | Closure | SymbolSExp | EmptySExp | CompoundSExp;
+export type SExpValue = number | boolean | string | PrimOp | Closure | SymbolSExp | EmptySExp | CompoundSExp| ClassValue | ObjectValue;
 export const isSExp = (x: any): x is SExpValue =>
     typeof(x) === 'string' || typeof(x) === 'boolean' || typeof(x) === 'number' ||
     isSymbolSExp(x) || isCompoundSExp(x) || isEmptySExp(x) || isPrimOp(x) || isClosure(x);
@@ -75,6 +75,29 @@ export const compoundSExpToArray = (cs: CompoundSExp, res: string[]): string[] |
 export const compoundSExpToString = (cs: CompoundSExp, css = compoundSExpToArray(cs, [])): string => 
     isArray(css) ? `(${css.join(' ')})` :
     `(${css.s1.join(' ')} . ${css.s2})`
+//=================================================================
+//ClassExp
+export type ClassValue={
+    tag :"ClassValue";
+    fields : VarDecl[];
+    methods : Binding[];
+}    
+export const makeClassValue= (fields : VarDecl[] , methods : Binding[]): ClassValue =>
+    ({tag: "ClassValue", fields: fields, methods: methods});
+export const isClassValue = (x: any): x is ClassValue => x.tag === "ClassValue";
+
+//=================================================================
+//ObjectValue
+export type ObjectValue = {
+    tag: "ObjectValue";
+    fields: VarDecl[];
+    fieldValues: Value[];
+    methods: Binding[];
+}
+export const makeObjectValue = (fields: VarDecl[], fieldValues: Value[], methods: Binding[]): ObjectValue =>
+    ({tag: "ObjectValue", fields: fields, fieldValues: fieldValues, methods: methods});
+export const isObjectValue = (x: any): x is ObjectValue => x.tag === "ObjectValue";
+
 
 export const valueToString = (val: Value): string =>
     isNumber(val) ?  val.toString() :
@@ -86,4 +109,6 @@ export const valueToString = (val: Value): string =>
     isSymbolSExp(val) ? val.val :
     isEmptySExp(val) ? "'()" :
     isCompoundSExp(val) ? compoundSExpToString(val) :
+    isClassValue(val)? "Class":
+    isObjectValue(val)? "Object":
     val;
