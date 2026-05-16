@@ -5,9 +5,9 @@ import { map } from "ramda";
 import { isBoolExp, isCExp, isLitExp, isNumExp, isPrimOp, isStrExp, isVarRef,
          isAppExp, isDefineExp, isIfExp, isLetExp, isProcExp,
          Binding, VarDecl, CExp, Exp, IfExp, LetExp, ProcExp, Program,
-         parseL3Exp,  DefineExp} from "./L3-ast";
+         parseL3Exp,  DefineExp, isClassExp, ClassExp} from "./L3-ast";
 import { applyEnv, makeEmptyEnv, makeExtEnv, Env } from "./L3-env-env";
-import { isClosure, makeClosureEnv, Closure, Value } from "./L3-value";
+import { isClosure, makeClosureEnv, Closure, Value, isClassValue, makeClassValue, ClassValue, ObjectValue, makeObjectValue, isObjectValue, isSymbolSExp } from "./L3-value";
 import { applyPrimitive } from "./evalPrimitive";
 import { allT, first, rest, isEmpty, isNonEmptyList } from "../shared/list";
 import { Result, makeOk, makeFailure, bind, mapResult } from "../shared/result";
@@ -27,6 +27,7 @@ const applicativeEval = (exp: CExp, env: Env): Result<Value> =>
     isIfExp(exp) ? evalIf(exp, env) :
     isProcExp(exp) ? evalProc(exp, env) :
     isLetExp(exp) ? evalLet(exp, env) :
+    isClassExp(exp) ? makeOk(makeClassValue(exp.fields, exp.methods)) :
     isAppExp(exp) ? bind(applicativeEval(exp.rator, env),
                       (proc: Value) =>
                         bind(mapResult((rand: CExp) => 
@@ -51,6 +52,8 @@ const evalProc = (exp: ProcExp, env: Env): Result<Closure> =>
 const applyProcedure = (proc: Value, args: Value[]): Result<Value> =>
     isPrimOp(proc) ? applyPrimitive(proc, args) :
     isClosure(proc) ? applyClosure(proc, args) :
+    isClassValue(proc) ? makeOk(makeObjectValue(proc.fields, args, proc.methods)) :
+    isObjectValue(proc) ? applyObject(proc, args) :
     makeFailure(`Bad procedure ${format(proc)}`);
 
 const applyClosure = (proc: Closure, args: Value[]): Result<Value> => {
@@ -76,6 +79,21 @@ const evalDefineExps = (def: DefineExp, exps: Exp[], env: Env): Result<Value> =>
     bind(applicativeEval(def.val, env), (rhs: Value) => 
             evalSequence(exps, makeExtEnv([def.var.var], [rhs], env)));
 
+
+const applyObject = (proc: ObjectValue, args: Value[]): Result<Value> => {
+    const methodName = args[0];
+    if (!isSymbolSExp(methodName))
+        return makeFailure(`Method name must be a symbol`);
+    const method = proc.methods.find(b => b.var.var === methodName.val);
+    if (method === undefined)
+        return makeFailure(`Unrecognized method: ${methodName.val}`);
+    const fieldNames = map((v: VarDecl) => v.var, proc.fields);
+    const fieldEnv = makeExtEnv(fieldNames, proc.fieldValues, makeEmptyEnv());
+    return bind(
+        applicativeEval(method.val as CExp, fieldEnv),
+        (methodClosure: Value) => applyProcedure(methodClosure, args.slice(1))
+    );
+}
 
 // Main program
 export const evalL3program = (program: Program): Result<Value> =>
