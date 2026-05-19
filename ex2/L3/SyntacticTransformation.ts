@@ -29,7 +29,7 @@ const transformCExp = (exp: CExp): Result<CExp> =>
                         ([test, then, alt]) => makeIfExp(test, then, alt)) :
     isProcExp(exp) ? mapv(mapResult(transformCExp, exp.body),
                           body => makeProcExp(exp.args, body)) :
-    isAppExp(exp) ? mapv(mapResult(transformCExp, [exp.rator, ...exp.rands]),
+    isAppExp(exp) ? mapv(mapResult(transformCExp, [exp.rator].concat(exp.rands)),
                          ([rator, ...rands]) => makeAppExp(rator, rands)) :
     isLetExp(exp) ? bind(
         mapResult((b: Binding) => mapv(transformCExp(b.val), val => makeBinding(b.var.var, val)), exp.bindings),

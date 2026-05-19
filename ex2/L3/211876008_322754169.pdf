@@ -1,0 +1,89 @@
+Part 1 — ClassExp to ProcExp Transformation
+
+(define pi 3.14) 
+(define square (lambda (x) (* x x))) 
+(define circle (lambda (x y radius) 
+    (lambda (msg) 
+        (if (eq? msg 'area) 
+            (* (square radius) pi) 
+            (if (eq? msg 'perimeter)   
+                (* 2 pi radius) 
+                'error))))) 
+
+(define c (circle 0 0 3)) 
+(c 'area)
+
+
+Part 2 — L3applicativeEval Trace (Substitution Model) Expressions in the order they are evaluated:
+
+1. 3.14 — value expression of (define pi 3.14)
+
+2. (lambda (x) (* x x)) — value expression of (define square ...)
+
+3. (lambda (x y radius)
+     (lambda (msg)
+       (if (eq? msg 'area)
+           (* (square radius) pi)
+           (if (eq? msg 'perimeter)
+               (* 2 pi radius)
+               'error)))) — value expression of (define circle ...)
+
+4. (circle 0 0 3) — value expression of (define c ...)
+
+5. circle — evaluating the rator
+
+6. 0 — first rand
+
+7. 0 — second rand
+
+8. 3 — third rand
+
+9. (lambda (msg)
+     (if (eq? msg 'area)
+         (* (square 3) pi)
+         (if (eq? msg 'perimeter)
+             (* 2 pi 3)
+             'error))) — body of circle after substitution: x → 0, y → 0, radius → 3
+
+10. (c 'area) — final expression of the program
+
+11. c — evaluating the rator
+
+12. 'area — evaluating the rand
+
+13. (if (eq? 'area 'area)
+        (* (square 3) pi)
+        (if (eq? 'area 'perimeter)
+            (* 2 pi 3)
+            'error)) — body of c after substitution: msg → 'area
+
+14. (eq? 'area 'area) — the if condition
+
+15. eq? — rator of the condition
+
+16. 'area — first rand of the condition
+
+17. 'area — second rand of the condition, result: #t
+
+18. (* (square 3) pi) — the then branch
+
+19. * — rator of multiplication
+
+20. (square 3) — first rand
+
+21. square — rator of (square 3)
+
+22. 3 — rand of (square 3)
+
+23. (* 3 3) — body of square after substitution: x → 3
+
+24. * — rator of multiplication
+
+25. 3 — first rand
+
+26. 3 — second rand, result: 9
+
+27. pi — second rand of (* (square 3) pi), returns 3.14
+
+final result:
+(* 9 3.14) = 28.26
